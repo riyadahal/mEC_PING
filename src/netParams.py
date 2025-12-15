@@ -1,3 +1,10 @@
+import os
+import sys
+
+repo_root = os.path.abspath(os.getcwd())
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
+
 import Inet.CreateNetworkParameters as Inet
 import src.defs as defs
 import numpy as np
@@ -47,7 +54,7 @@ else:
 ## VoltageClamp
 ###############################################################################
 if cfg.Clamp==True:
-	netParams.stimSourceParams['Vclamp'] = {'type': 'SEClamp', 'dur1': 1e9, 'amp1': cfg.Vclamp, 'rs': 1e-4}
+	netParams.stimSourceParams['Vclamp'] = {'type': 'SEClamp', 'dur1': 1e9, 'amp1': cfg.Vclamp, 'rs': 1e-5}
     # Stimulation mapping parameters
 	netParams.stimTargetParams['Vclamp->Cells'] = {
         'source': 'Vclamp',
@@ -139,7 +146,7 @@ if cfg.GAP==True:
 ## Inhibitory synapses FS-> SC
 
 tau_riseExc=0.4
-tau_fallExc=6.
+tau_fallExc= cfg.tau_fallExc
 c_fall = 1./tau_fallExc; c_rise = 1./tau_riseExc
 norm_synExc = 1./( np.exp(-c_fall*np.log(c_rise/c_fall)/(c_rise-c_fall)) - np.exp(-c_rise*np.log(c_rise/c_fall)/(c_rise-c_fall)) )
 netParams.synMechParams['inhFSSC'] = {'mod': 'synactdep', 'tau_rise': tau_riseExc, 'tau_fall': tau_fallExc, 'f' : norm_synExc, 'xs' : 1, 'U_SE' : U_SE, 'tau_d' : tau_d, 'Es': -65.}
@@ -150,7 +157,7 @@ netParams.connParams['FS->SC'] = {
         'sec':'soma',
         'probability': cfg.ConnProbIE,
         #I'm subbing weight for conductance, gms was in nanosiemens and needs to be converted to uS
-        'weight': 'lognormal(1.65,2.17)*1e-3/0.3',                      # weight of each connection. Take into account that numpy and NEURON arguments are different (numpy args are mean and std for subjacent normal distribution, not the lognorm as in NEURON)
+        'weight': cfg.WeightI2E, #'(lognormal(1.65,2.17)*1e-3/0.3)*1.5',                      # weight of each connection. Take into account that numpy and NEURON arguments are different (numpy args are mean and std for subjacent normal distribution, not the lognorm as in NEURON)
         'synMech': 'inhFSSC',                   # target inh synapse
         'delay': '0.6+(1-0.6)*uniform(0,1)'}                    # delay
 
@@ -170,3 +177,4 @@ netParams.connParams['SC->FS'] = {
         'weight': cfg.Weight_E2I,#'0.0039*lognormal(0.01,1e-1)',       #'0.8*lognormal(0.01,1e-1)'               # weight of each connection#gms*0.001
         'synMech': 'AMPA',                   # target exc synapse
          'delay': '0.6+(1-0.6)*uniform(0,1)'} #'0.6+(1-0.6)*uniform(0,1)'                   # delay
+
