@@ -7,10 +7,10 @@
 To clone the dev branch of the repository, open a terminal in the directory where you'd like to store the project and run:
 
 ```bash
-git clone --branch dev --single-branch https://github.com/RomanB22/mEC_model2025.git
+git clone --branch dev --single-branch https://github.com/riyadahal/mEC_PING.git
 ````
 
-After that, make sure to move to the repo folder using `cd mEC_model2025`.
+After that, make sure to move to the repo folder using `cd mEC_PING`.
 
 ## Installation
 
