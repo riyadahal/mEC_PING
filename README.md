@@ -7,7 +7,7 @@
 To clone the dev branch of the repository, open a terminal in the directory where you'd like to store the project and run:
 
 ```bash
-git clone --branch dev --single-branch https://github.com/riyadahal/mEC_PING.git
+git clone https://github.com/riyadahal/mEC_PING.git
 ````
 
 After that, make sure to move to the repo folder using `cd mEC_PING`.
