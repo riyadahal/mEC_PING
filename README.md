@@ -31,16 +31,16 @@ nrnivmodl mod
 
 ### Setting up the parameters
 
-In `spatialModel/cfg.py` you can modify all the parameters, variables and conditions for the simulation. For example, you can change the values of the flags to have sinusoidal optogenetic drive, choose the stellate cell model, add gap junction connectivity between the PV cells, change the recorded cells, simulation time, etc.
+In `src/cfg.py` you can modify all the parameters, variables and conditions for the simulation. For example, you can change the values of the flags to have sinusoidal optogenetic drive, choose the stellate cell model, add gap junction connectivity between the PV cells, change the recorded cells, simulation time, etc.
 
 ## ▶Running Simulations
 
 ### Run a Single Simulation
 
-All simulation parameters are defined in the `spatialModel/cfg.py` file. To run a single simulation:
+All simulation parameters are defined in the `src/cfg.py` file. To run a single simulation:
 
 ```bash
-python -u spatialModel/init.py
+python -u src/init.py
 ```
 ### Updates
 Some new parameters added and changes to the optogenetic stimulus are:
