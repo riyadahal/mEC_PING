@@ -94,7 +94,7 @@ cfg.GapJunctProb, cfg.ChemycalConnProb = 0.2, 0.25 # Probability connections fro
 cfg.ConnProbIE, cfg.ConnProbEI = 0.2, 0.25 # FS PV+ to SC and SC to FS PV+ probability connections
 cfg.Weight_E2I = 0.0008
 cfg.WeightI2E = '(lognormal(1.65,2.17)*1e-3/0.3)*1.5'
-cfg.tau_fallExc = 2
+cfg.tau_fallExc = 6
 ###############################################################################
 ## Recording and analysis
 ###############################################################################
