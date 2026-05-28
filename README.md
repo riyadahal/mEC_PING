@@ -69,6 +69,17 @@ where that property is any of the ones defined in `spatialModel/cfg.py`. That wi
 
 *(Add your model description here.)*
 
+## Analysis Files
+These are routines to analyze the .pkl files generated from the NetPyNE simulations. Make sure to direct the folder name to the folder where the .pkl files are available.
+
+Autocorr.py is used for the generation of IPSCs, EPSCs, and the autocorrelation of the signals based on the input .pkl file provided
+
+ComRas.py is used for the raster plots of the network
+
+Cross_Corr.py uses the IPSCs and EPSCs and uses cross correlation coefficient to calculate the time lag in signals
+
+Traces.py is used to plot membrane potential traces of various populations
+
 ## To-Do List
 
 - [ ] Check that the temperature for the simulation is correct (`cfg.hParams = {'celsius': 23, 'v_init': -80}` in `src/cfg.py`). That shouldn't change anything unless any of the ion channels have a temperature-dependent behavior
