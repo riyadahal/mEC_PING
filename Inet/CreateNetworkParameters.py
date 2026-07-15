@@ -1,22 +1,68 @@
 import numpy as np
 from scipy.stats import truncnorm
-import random 
-from brian2 import NeuronGroup, Synapses, seed, prefs, BrianLogger
 import os
 
-BrianLogger.log_level_error()
-
 # See end of file for Usage
-
+#Brian2 dependence has been removed from this set of simulations so the seeds are different here
 def gen_syns_samepop(N,p):
-    net = NeuronGroup(N, "dv/dt = 0 : volt", threshold="v>1.", method="euler");
-    S = Synapses(net,model="w : volt",on_pre="v_post+=w",method="euler")
-    S.connect(p=p,condition="i!=j")
-    return S.i[:],S.j[:]
+    """
+    Brian2-compatible replacement for:
+    Synapses.connect(p=p, condition="i!=j")
+
+    Brian2 rewrites this call as the generator expression:
+        j = "_k for _k in sample(N_post, p=p) if i != _k"
+    i.e. for every presynaptic index, it samples every postsynaptic index with
+    probability p and only then filters out self-connections.
+    """
+    presynaptic = []
+    postsynaptic = []
+
+    for i in range(N):
+        if p == 1:
+            js = np.arange(N, dtype=np.int32)
+        else:
+            js = np.flatnonzero(np.random.random(N) < p).astype(np.int32)
+        js = js[js != i]
+        if js.size == 0:
+            continue
+        presynaptic.append(np.full(js.size, i, dtype=np.int32))
+        postsynaptic.append(js)
+
+    if not presynaptic:
+        empty = np.array([], dtype=np.int32)
+        return empty, empty
+
+    return np.concatenate(presynaptic), np.concatenate(postsynaptic)
 
 def gen_unif_ds(Nsyns,dmin=.6,dmax=1.): return dmin+(dmax-dmin)*np.random.random(size=(1,Nsyns))
 
 def gen_lognormal_gms(Nsyns,mean=0.,sigma=1.): return np.random.lognormal(mean=mean,sigma=sigma,size=(1,Nsyns))
+
+def _load_network_model_parameters():
+  current_dir = os.getcwd()
+  module_dir = os.path.dirname(os.path.abspath(__file__))
+  candidate_dirs = [current_dir, os.path.join(current_dir, "Inet"), module_dir]
+
+  def load_from_candidates(filename):
+    for directory in candidate_dirs:
+      path = os.path.join(directory, filename)
+      if os.path.exists(path):
+        return np.loadtxt(path)
+    raise FileNotFoundError(f"Could not find '{filename}' in any expected location.")
+
+  gLs = load_from_candidates("gLsLast.dat")
+  ELs = load_from_candidates("ELsLast.dat")
+  taums = load_from_candidates("taumsLast.dat")
+  active_params = np.transpose(load_from_candidates("ActiveParamsLast.dat"))
+  return gLs, ELs, taums, active_params
+
+def _match_population_size(values, NumNeurons):
+  values = np.asarray(values)
+  NumModels = len(values)
+  if NumNeurons > NumModels:
+    q, mod = divmod(NumNeurons, NumModels)
+    return np.concatenate((np.tile(values, q), values[:mod]))
+  return values[:NumNeurons]
 
 def ConductAndReversPotsWithGapJunct(ConductOrig,ReversPotOrig,gLmin=2.,ggapHigh=1.3,full_dist=False,Ngaps=20,sigma=.4):
   NumNeurons = len(ConductOrig)
@@ -65,51 +111,32 @@ NeuronModel=43,
 randomseed = 7894 # FIX IT FOR REPRODUCIBILITY
 ):
   np.random.seed(randomseed)
-  prefs.codegen.target = "numpy"
-  seed(randomseed)
-  try: 
-    gLs = np.loadtxt("gLsLast.dat")
-    ELs = np.loadtxt("ELsLast.dat")
-    taums = FactorTau*np.loadtxt("taumsLast.dat")
-    gNas, gKv3s, gKv7s, thm1s, thh2s, thn1s, tha1s = np.transpose(np.loadtxt( os.getcwd()+"ActiveParamsLast.dat" ))
-  except:# Just in case you call the function form another directory
-    print("Files not present in current directory. Searching in subdirectory") 
-    gLs = np.loadtxt(os.getcwd()+"/Inet/gLsLast.dat")
-    ELs = np.loadtxt(os.getcwd()+"/Inet/ELsLast.dat")
-    taums = FactorTau*np.loadtxt(os.getcwd()+"/Inet/taumsLast.dat")
-    gNas, gKv3s, gKv7s, thm1s, thh2s, thn1s, tha1s = np.transpose(np.loadtxt(os.getcwd()+"/Inet/ActiveParamsLast.dat" ))
+  gLs, ELs, taums, active_params = _load_network_model_parameters()
+  taums = FactorTau*taums
+  gNas, gKv3s, gKv7s, thm1s, thh2s, thn1s, tha1s = active_params
 
   if homogeneous:
-    gLs = [gLs[NeuronModel]]
-    ELs = [ELs[NeuronModel]]
-    taums = [taums[NeuronModel]]
-    gNas, gKv3s, gKv7s, thm1s, thh2s, thn1s, tha1s = [gNas[NeuronModel]], [gKv3s[NeuronModel]], [gKv7s[NeuronModel]], [thm1s[NeuronModel]], [thh2s[NeuronModel]], [thn1s[NeuronModel]], [tha1s[NeuronModel]]
+    gLs = np.array([gLs[NeuronModel]])
+    ELs = np.array([ELs[NeuronModel]])
+    taums = np.array([taums[NeuronModel]])
+    gNas = np.array([gNas[NeuronModel]])
+    gKv3s = np.array([gKv3s[NeuronModel]])
+    gKv7s = np.array([gKv7s[NeuronModel]])
+    thm1s = np.array([thm1s[NeuronModel]])
+    thh2s = np.array([thh2s[NeuronModel]])
+    thn1s = np.array([thn1s[NeuronModel]])
+    tha1s = np.array([tha1s[NeuronModel]])
 
-  NumModels = len(gLs) # Number of calibrated models
-  
-  if NumNeurons > NumModels:
-    q, mod = divmod(NumNeurons, NumModels)
-    gLs = np.concatenate((np.tile(gLs,q),gLs[:mod]))
-    ELs = np.concatenate((np.tile(ELs,q),ELs[:mod]))
-    taums = np.concatenate((np.tile(taums,q),taums[:mod]))
-    gNas = np.concatenate((np.tile(gNas,q),gNas[:mod]))
-    gKv3s = np.concatenate((np.tile(gKv3s,q),gKv3s[:mod]))
-    gKv7s = np.concatenate((np.tile(gKv7s,q),gKv7s[:mod]))
-    thm1s = np.concatenate((np.tile(thm1s,q),thm1s[:mod]))
-    thh2s = np.concatenate((np.tile(thh2s,q),thh2s[:mod]))
-    thn1s = np.concatenate((np.tile(thn1s,q),thn1s[:mod]))
-    tha1s = np.concatenate((np.tile(tha1s,q),tha1s[:mod]))
-  else:
-    gLs = gLs[:NumNeurons]
-    ELs = ELs[:NumNeurons]
-    taums = taums[:NumNeurons]
-    gNas = gNas[:NumNeurons]
-    gKv3s = gKv3s[:NumNeurons]
-    gKv7s = gKv7s[:NumNeurons]
-    thm1s = thm1s[:NumNeurons]
-    thh2s = thh2s[:NumNeurons]
-    thn1s = thn1s[:NumNeurons]
-    tha1s = tha1s[:NumNeurons]
+  gLs = _match_population_size(gLs, NumNeurons)
+  ELs = _match_population_size(ELs, NumNeurons)
+  taums = _match_population_size(taums, NumNeurons)
+  gNas = _match_population_size(gNas, NumNeurons)
+  gKv3s = _match_population_size(gKv3s, NumNeurons)
+  gKv7s = _match_population_size(gKv7s, NumNeurons)
+  thm1s = _match_population_size(thm1s, NumNeurons)
+  thh2s = _match_population_size(thh2s, NumNeurons)
+  thn1s = _match_population_size(thn1s, NumNeurons)
+  tha1s = _match_population_size(tha1s, NumNeurons)
 
   ENa=50; sigm1=4.; km2=.1; sigm2=13.; kh1=.012; kh2=.2; sigh1=-20.; sigh2=3.5; #Sodium current parameters
   EK=-90; sign1=12.; kn1 = FactorKv3*1.; kn2=FactorKv3*.001; sign2=-8.5; #Kv3 current parameters
@@ -149,51 +176,32 @@ NeuronModel=43,
 randomseed = 7894 # FIX IT FOR REPRODUCIBILITY
 ):
   np.random.seed(randomseed)
-  prefs.codegen.target = "numpy"
-  seed(randomseed)
-  try: 
-    gLs = np.loadtxt("gLsLast.dat")
-    ELs = np.loadtxt("ELsLast.dat")
-    taums = FactorTau*np.loadtxt("taumsLast.dat")
-    gNas, gKv3s, gKv7s, thm1s, thh2s, thn1s, tha1s = np.transpose(np.loadtxt( os.getcwd()+"ActiveParamsLast.dat" ))
-  except:# Just in case you call the function form another directory
-    print("Files not present in current directory. Searching in subdirectory") 
-    gLs = np.loadtxt(os.getcwd()+"/Inet/gLsLast.dat")
-    ELs = np.loadtxt(os.getcwd()+"/Inet/ELsLast.dat")
-    taums = FactorTau*np.loadtxt(os.getcwd()+"/Inet/taumsLast.dat")
-    gNas, gKv3s, gKv7s, thm1s, thh2s, thn1s, tha1s = np.transpose(np.loadtxt(os.getcwd()+"/Inet/ActiveParamsLast.dat" ))
+  gLs, ELs, taums, active_params = _load_network_model_parameters()
+  taums = FactorTau*taums
+  gNas, gKv3s, gKv7s, thm1s, thh2s, thn1s, tha1s = active_params
 
   if homogeneous:
-    gLs = [gLs[NeuronModel]]
-    ELs = [ELs[NeuronModel]]
-    taums = [taums[NeuronModel]]
-    gNas, gKv3s, gKv7s, thm1s, thh2s, thn1s, tha1s = [gNas[NeuronModel]], [gKv3s[NeuronModel]], [gKv7s[NeuronModel]], [thm1s[NeuronModel]], [thh2s[NeuronModel]], [thn1s[NeuronModel]], [tha1s[NeuronModel]]
+    gLs = np.array([gLs[NeuronModel]])
+    ELs = np.array([ELs[NeuronModel]])
+    taums = np.array([taums[NeuronModel]])
+    gNas = np.array([gNas[NeuronModel]])
+    gKv3s = np.array([gKv3s[NeuronModel]])
+    gKv7s = np.array([gKv7s[NeuronModel]])
+    thm1s = np.array([thm1s[NeuronModel]])
+    thh2s = np.array([thh2s[NeuronModel]])
+    thn1s = np.array([thn1s[NeuronModel]])
+    tha1s = np.array([tha1s[NeuronModel]])
 
-  NumModels = len(gLs) # Number of calibrated models
-  
-  if NumNeurons > NumModels:
-    q, mod = divmod(NumNeurons, NumModels)
-    gLs = np.concatenate((np.tile(gLs,q),gLs[:mod]))
-    ELs = np.concatenate((np.tile(ELs,q),ELs[:mod]))
-    taums = np.concatenate((np.tile(taums,q),taums[:mod]))
-    gNas = np.concatenate((np.tile(gNas,q),gNas[:mod]))
-    gKv3s = np.concatenate((np.tile(gKv3s,q),gKv3s[:mod]))
-    gKv7s = np.concatenate((np.tile(gKv7s,q),gKv7s[:mod]))
-    thm1s = np.concatenate((np.tile(thm1s,q),thm1s[:mod]))
-    thh2s = np.concatenate((np.tile(thh2s,q),thh2s[:mod]))
-    thn1s = np.concatenate((np.tile(thn1s,q),thn1s[:mod]))
-    tha1s = np.concatenate((np.tile(tha1s,q),tha1s[:mod]))
-  else:
-    gLs = gLs[:NumNeurons]
-    ELs = ELs[:NumNeurons]
-    taums = taums[:NumNeurons]
-    gNas = gNas[:NumNeurons]
-    gKv3s = gKv3s[:NumNeurons]
-    gKv7s = gKv7s[:NumNeurons]
-    thm1s = thm1s[:NumNeurons]
-    thh2s = thh2s[:NumNeurons]
-    thn1s = thn1s[:NumNeurons]
-    tha1s = tha1s[:NumNeurons]
+  gLs = _match_population_size(gLs, NumNeurons)
+  ELs = _match_population_size(ELs, NumNeurons)
+  taums = _match_population_size(taums, NumNeurons)
+  gNas = _match_population_size(gNas, NumNeurons)
+  gKv3s = _match_population_size(gKv3s, NumNeurons)
+  gKv7s = _match_population_size(gKv7s, NumNeurons)
+  thm1s = _match_population_size(thm1s, NumNeurons)
+  thh2s = _match_population_size(thh2s, NumNeurons)
+  thn1s = _match_population_size(thn1s, NumNeurons)
+  tha1s = _match_population_size(tha1s, NumNeurons)
 
   ENa=50; sigm1=4.; km2=.1; sigm2=13.; kh1=.012; kh2=.2; sigh1=-20.; sigh2=3.5; #Sodium current parameters
   EK=-90; sign1=12.; kn1 = FactorKv3*1.; kn2=FactorKv3*.001; sign2=-8.5; #Kv3 current parameters
@@ -221,7 +229,9 @@ meangms=0.,
 sigmagms=1.,
 randomseed = 7894 # FIX IT FOR REPRODUCIBILITY
 ):
-
+  # Keep the historical behavior: this function advances the current NumPy RNG
+  # stream instead of reseeding, so it stays equivalent to NetworkParams when
+  # called after ViaModelParams.
   syns = gen_syns_samepop(NumNeurons,ChemycalConnProb)
   Nsyns = len(syns[0])  
   delays = gen_unif_ds(Nsyns,dmin=delaymin,dmax=delaymax)[0]
@@ -255,9 +265,6 @@ randomseed = 7894 # FIX IT FOR REPRODUCIBILITY
 # assert set(syns) == set(syns2), f"Assertion failed: gLs != gLs2 as sets\n  set(gLs): {set(syns)}\n  set(gLs2): {set(syns2)}"
 # assert set(synsgj) == set(synsgj2), f"Assertion failed: gLs != gLs2 as sets\n  set(gLs): {set(gLs)}\n  set(gLs2): {set(gLs2)}"
 # assert set(ggs) == set(ggs2), f"Assertion failed: gLs != gLs2 as sets\n  set(gLs): {set(gLs)}\n  set(gLs2): {set(gLs2)}"
-
-
-
 
 
 
