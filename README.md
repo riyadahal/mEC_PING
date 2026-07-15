@@ -63,7 +63,7 @@ params['property'] = [list of values]
 ```
 where that property is any of the ones defined in `spatialModel/cfg.py`. That will create automatically all possible combination of values between all the params (be careful since the number of combinations grows exponentially). See for example the function `runDifferentReversalPot()`
 
-> ⚠️ Note: Batch simulations have not been fully tested yet.
+> Note: Batch simulations have been fully tested for src/Ant_Batch.py. They have not been tested for the spatial model yet.
 
 ## Model Description
 
@@ -79,6 +79,8 @@ ComRas.py is used for the raster plots of the network
 Cross_Corr.py uses the IPSCs and EPSCs and uses cross correlation coefficient to calculate the time lag in signals
 
 Traces.py is used to plot membrane potential traces of various populations
+
+Single_Sweep.py and Double_Sweep.py are used for analyzing multiple .pkl files and extracting frequency and gamma power for parameter sweeps. They would need a supercomputer server with a minimum of 16GB RAM to avoid memory crashes while running.
 
 ## To-Do List
 
